@@ -3,19 +3,19 @@
 #define OFFSET 0x20
 
 // Macro helper for registers
-#define REGISTER(addr) *((volatile unsigned char*)(addr+OFFSET))
+#define REG(addr) *((volatile unsigned char*)(addr+OFFSET))
 
 // Port B Data Direction Register
-#define DDRB REGISTER(0x17)
+#define DDRB REG(0x17)
 
 // Port B Data Register
-#define PORTB REGISTER(0x18)
+#define PORTB REG(0x18)
 
 // Timer/Counter Control Register B
-#define TCCR0B REGISTER(0x33)
+#define TCCR0B REG(0x33)
 
 // Timer/Counter Interrupt Mask Register
-#define TIMSK REGISTER(0x39)
+#define TIMSK REG(0x39)
 
 // Creates a bitmask for a specific bit position. The input (bit)
 // represents the bit position you want to create a bitmask for.
