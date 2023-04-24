@@ -24,19 +24,12 @@
 // Inline assembly for SEI instruction
 #define ASM_SEI() __asm__ __volatile__ ("sei" ::: "memory")
 
-// Inline assembly for RETI instruction
-#define ASM_RETI() __asm__ __volatile__ ("reti" ::: "memory")
-
 // Handler function for the TIMER0_OVF (Timer/Counter0 Overflow) interrupt
 // (vector #5 from datasheet). The naming (__vector_+vector#) is ultimately
 // what the compiler needs in order to know this is an Interrupt Service
 // Routine handler func and to patch the vector table, etc.
 void __vector_5(void) __attribute__ ((signal, used, externally_visible));
-void __vector_5(void)
-{
-  PORTB ^= BV_MASK(0);
-  ASM_RETI();
-}
+void __vector_5(void) { PORTB ^= BV_MASK(0); }
 
 int main()
 {

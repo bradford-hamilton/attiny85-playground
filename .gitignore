@@ -1,2 +1,3 @@
-a.hex
-a.out
+*.hex
+*.out
+*.asm
