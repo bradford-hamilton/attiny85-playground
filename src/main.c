@@ -25,10 +25,10 @@
 #define ASM_SEI() __asm__ __volatile__ ("sei" ::: "memory")
 
 // Handler function for the TIMER0_OVF (Timer/Counter0 Overflow) interrupt
-// (vector #5 from datasheet). The naming (__vector_+vector#) is ultimately
-// what the compiler needs in order to know this is an Interrupt Service
-// Routine handler func and to patch the vector table, etc.
-void __vector_5(void) __attribute__ ((signal, used, externally_visible));
+// (vector at 0x0005 from datasheet). The naming (__vector_+vector#) plus
+// the `signal` attribute is ultimately what the compiler needs in order
+// to know this is an ISR handler and to patch the vector table, etc.
+void __vector_5(void) __attribute__ ((signal));
 void __vector_5(void) { PORTB ^= BV_MASK(0); }
 
 int main()
@@ -42,7 +42,7 @@ int main()
   // Enable timer overflow interrupt
   TIMSK |= BV_MASK(1);
 
-  // Enable global interrupts
+  // Enable global interrupts with assembly
   ASM_SEI();
 
   while (1) {}
