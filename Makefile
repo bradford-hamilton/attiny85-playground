@@ -1,4 +1,4 @@
-# Compile for attiny85 with default everything
+# Compile for attiny85 - optimize for size
 compile:
 	avr-gcc -Wall -Os -mmcu=attiny85 src/main.c
 
