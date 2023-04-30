@@ -46,4 +46,6 @@ int main()
   ASM_SEI();
 
   while (1) {}
+
+  return 0;
 }
