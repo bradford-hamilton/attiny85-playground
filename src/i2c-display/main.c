@@ -101,7 +101,7 @@ int main()
   do {
     USICR |= (1 << USITC_PIN);        // Clock signal from SCL
     while ((PINB & (1 << PB2_PIN)));  // Wait for SCL to get pulled high
-    USICR |= (1 << USITC_PIN);        // Toggle SCL low TODO: try PORTB bit write
+    PORTB |= (0 << PB2_PIN);          // Toggle SCL low
 
   } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
   USISR |= (1 << USIOIF_PIN);             // Clear overflow flag
@@ -114,7 +114,7 @@ int main()
   do {
     USICR |= (1 << USITC_PIN);
     while ((PINB & (1 << PB2_PIN)));
-    USICR |= (1 << USITC_PIN);
+    PORTB |= (0 << PB2_PIN);
 
   } while (!(USISR & (1 << USIOIF_PIN)));
   USISR |= (1 << USIOIF_PIN);
@@ -135,7 +135,7 @@ int main()
       do {
         USICR |= (1 << USITC_PIN);
         while ((PINB & (1 << PB2_PIN)));
-        USICR |= (1 << USITC_PIN);
+        PORTB |= (0 << PB2_PIN);
 
       } while (!(USISR & (1 << USIOIF_PIN)));
       USISR |= (1 << USIOIF_PIN);
