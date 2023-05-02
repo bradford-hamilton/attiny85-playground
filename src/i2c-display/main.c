@@ -64,9 +64,7 @@ void i2c_init()
 {
   // I2C start condition
   PORTB |= (1 << PB0_PIN); // Pull SDA high
-  // delay_ms(5);
   PORTB |= (1 << PB2_PIN); // Pull SCL high
-  // delay_ms(5);
 
   // Set data direction for PB0_PIN (SDA) and PB2_PIN (SCL)
   DDRB |= BV_MASK(PB0_PIN);
@@ -78,7 +76,8 @@ void i2c_init()
   USICR |= BV_MASK(USICS1_PIN); // Software stobe as counter clock source
   USICR |= BV_MASK(USICLK_PIN); // Software stobe as counter clock source
 
-  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN | 1 << USIDC_PIN | // Clear flags,
+  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN |
+    1 << USIDC_PIN | // Clear flags,
     0x0 << USICNT0_PIN; // reset counter.
 }
 
@@ -127,7 +126,7 @@ int main()
     DDRB |= BV_MASK(PB0_PIN);
 
     char data_to_send[] = "testing";
-    short int i = 0;
+    uint16_t i = 0;
     
     while (data_to_send[i] != "\0") {
       USIDR = data_to_send[i]; // Place byte in data register
