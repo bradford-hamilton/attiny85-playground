@@ -140,65 +140,25 @@ bool i2c_start(uint8_t address)
   PORTB |= (1 << PB2_PIN); // Pull SCL low
   USIDR = (address << 1) | 0; // Setup data (address)
   i2c_transfer(USISR_CLOCK_8_BIT);
+
+  // Clock and verify ack from slave
+  DDRB |= 0 << PB0_PIN; // Change direction of SDA to receive acknowledge bit
+  if (i2c_transfer(USISR_CLOCK_1_BIT) & (1 << 0)) {
+    return false;
+  }
+
+  // Write successful
+  return true;
 }
 
 int main()
 {
-  i2c_init();
-
   // --------------------------------------------------------------------
-
-  while (!(USISR & (1 << USISIF_PIN)));
+  i2c_init();
+  // --------------------------------------------------------------------
   
   // Set data register to slave address and perform write op
   USIDR = (0x27 << 1) & ~0x01;
-
-  // I2C transfer
-  do {
-    USICR |= (1 << USITC_PIN);        // Clock signal from SCL
-    while ((PINB & (1 << PB2_PIN)));  // Wait for SCL to get pulled high
-    PORTB |= (0 << PB2_PIN);          // Toggle SCL low
-
-  } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
-  USISR |= (1 << USIOIF_PIN);             // Clear overflow flag
-
-  // I2C ack
-  DDRB &= ~(1 << PB0_PIN); // Change direction of SDA to receive acknowledge bit
-  USISR |= (1 << USICNT3_PIN) | (1 << USICNT2_PIN) | (1 << USICNT1_PIN); // Set counter to 1110 to force it to overflow when ACK bit is received
-
-  // I2C transfer
-  do {
-    USICR |= (1 << USITC_PIN);
-    while ((PINB & (1 << PB2_PIN)));
-    PORTB |= (0 << PB2_PIN);
-
-  } while (!(USISR & (1 << USIOIF_PIN)));
-  USISR |= (1 << USIOIF_PIN);
-
-  char i2c_data;
-  i2c_data = USIDR;
-
-  if (i2c_data & 0x01) {
-    DDRB |= BV_MASK(PB0_PIN);
-
-    char data_to_send[] = "testing";
-    uint16_t i = 0;
-    
-    while (data_to_send[i] != "\0") {
-      USIDR = data_to_send[i]; // Place byte in data register
-
-      // I2C transfer
-      do {
-        USICR |= (1 << USITC_PIN);
-        while ((PINB & (1 << PB2_PIN)));
-        PORTB |= (0 << PB2_PIN);
-
-      } while (!(USISR & (1 << USIOIF_PIN)));
-      USISR |= (1 << USIOIF_PIN);
-
-      i++;
-    }
-  }
 
   // I2C stop
   PORTB |= (0 << PB2_PIN); // Pulling SDA low 
