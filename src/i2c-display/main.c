@@ -1,6 +1,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Specifies the CPU frequency to be considered by the delay macros
+// Must be defined before including <util/delay>
+#define F_CPU 1000000UL
+
+// #include <avr/io.h>
+#include <util/delay.h>
+
 // When addressing I/O Registers as data space using LD and ST
 // instrucrutions, 0x20 must be added to these addresses.
 #define OFFSET 0x20
@@ -54,117 +61,101 @@
 #define USISR_CLOCK_8_BIT 0b11110000
 #define USISR_CLOCK_1_BIT 0b11111110
 
+#define WRITE_BIT 0
+#define READ_BIT 1
+
 // Creates a bitmask for a specific bit position. The input (bit)
 // represents the bit position you want to create a bitmask for.
 #define BV_MASK(bit) (1 << (bit))
 
-void _delay_us(uint16_t us)
-{
-  while (us--) { __asm__ __volatile__ ("nop"); }
-}
-
-void _delay_ms(uint16_t ms)
-{
-  while (ms--) { _delay_us(1000); }
-}
-
 void i2c_init()
 {
-  // I2C start condition
+  // Set data direction for PB0_PIN (SDA) and PB2_PIN (SCL)
+  DDRB |= (1 << PB0_PIN);
+  DDRB |= (1 << PB2_PIN);
+  
   PORTB |= (1 << PB0_PIN); // Pull SDA high
   PORTB |= (1 << PB2_PIN); // Pull SCL high
-
-  // Set data direction for PB0_PIN (SDA) and PB2_PIN (SCL)
-  DDRB |= BV_MASK(PB0_PIN);
-  DDRB |= BV_MASK(PB2_PIN);
   
   USIDR = 0xFF;                 // Preload data register
 
-  USICR |= BV_MASK(USIWM1_PIN); // Set two-wire mode (I2C)
-  USICR |= BV_MASK(USICS1_PIN); // Software stobe as counter clock source
-  USICR |= BV_MASK(USICLK_PIN); // Software stobe as counter clock source
+  // USICR |= BV_MASK(USIWM1_PIN); // Set two-wire mode (I2C)
+  // USICR |= BV_MASK(USICS1_PIN); // Software stobe as counter clock source
+  // USICR |= BV_MASK(USICLK_PIN); // Software stobe as counter clock source
+  USICR = (1 << USIWM1_PIN) | (1 << USICS1_PIN) | (1 << USICLK_PIN);
 
   USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN |
-    1 << USIDC_PIN | // Clear flags,
-    0x0 << USICNT0_PIN; // reset counter.
+    1 << USIDC_PIN |    // Clear flags
+    0x0 << USICNT0_PIN; // Reset counter
 }
 
-uint8_t i2c_transfer(uint8_t data)
+uint8_t i2c_transfer(uint8_t usisr_mask)
 {
-  USISR = data; // Set USI Status Register according to data
-
-  data = 0 << USISIE_PIN | 0 << USIOIE_PIN |                    // Interrupts disabled
-         1 << USIWM1_PIN | 0 << USIWM0_PIN |                    // Set USI in Two-wire mode.
-         1 << USICS1_PIN | 0 << USICS0_PIN | 1 << USICLK_PIN |  // Software clock strobe as source.
-         1 << USITC_PIN;                                        // Toggle Clock Port.
+  USISR = usisr_mask; // Set USI Status Register according to data
 
   // I2C transfer
   do {
     _delay_us(5);
-    USICR = data;                         // Generate positive clock edge
-    while ((PINB & (1 << PB2_PIN)));      // Wait for SCL to go high
-    _delay_ms(4);
-    USICR = data;                         // Generate negative clock edge
+    USICR |= (1 << USITC_PIN);            // Generate positive clock edge
+    while (!(PINB & (1 << PB2_PIN)));    // Wait for SCL to go high
+    _delay_us(4);
+    USICR |= (1 << USITC_PIN);            // Generate negative clock edge
   } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
 
   _delay_us(5);
-  data = USIDR;                           // Read data
-  USIDR = 0xFF;                           // Release SDA
-  DDRB |= BV_MASK(PB0_PIN);               // Ensure SDA is configured for output
+
+  uint8_t data = USIDR;                   // Read data
+
+  USIDR = 0xFF;
 
   return data;
 }
 
-bool i2c_start(uint8_t address)
+void i2c_start()
 {
-  // PORTB |= (1 << PB0_PIN);
-  PORTB |= (1 << PB2_PIN); // Release SCL
+  PORTB |= (1 << PB0_PIN); // Pull SDA high
+  PORTB |= (1 << PB2_PIN); // Pull SCL high
 
   while (!(PORTB & (1 << PB2_PIN))); // Verify that SCL goes high.
-
-  _delay_us(5);
 
   // Generate start condition
   PORTB &= ~(1 << PB0_PIN); // Pull SDA low
 
   _delay_us(5);
 
-  PORTB |= (1 << PB2_PIN); // Pull SCL low
-  PORTB |= (1 << PB0_PIN); // Pull SDA high
+  PORTB &= ~(1 << PB2_PIN); // Pull SCL low
+  // PORTB |= (1 << PB0_PIN); // Pull SDA high
+}
 
-  if (!USISR & (1 << USISIF_PIN)) {
-    return false;
-  }
-
-  // Write address
-  PORTB |= (1 << PB2_PIN); // Pull SCL low
-  USIDR = (address << 1) | 0; // Setup data (address)
+uint8_t i2c_write_byte(uint8_t data)
+{
+  USIDR = data;
   i2c_transfer(USISR_CLOCK_8_BIT);
 
-  // Clock and verify ack from slave
-  DDRB |= 0 << PB0_PIN; // Change direction of SDA to receive acknowledge bit
-  if (i2c_transfer(USISR_CLOCK_1_BIT) & (1 << 0)) {
-    return false;
-  }
+  // Verify ack
+  DDRB &= ~(1 << PB0_PIN); // Set SDA data direction to input to recieve ack
+  uint8_t ack = i2c_transfer(USISR_CLOCK_1_BIT);
+  DDRB |= (1 << PB0_PIN); // Set SDA data direction back to output
 
-  // Write successful
-  return true;
+  return ack;
 }
 
 int main()
 {
+  _delay_ms(4000);
+
   // --------------------------------------------------------------------
   i2c_init();
+  i2c_start();
+  uint8_t i2c_addr = (0x27 << 1) | WRITE_BIT;
+  i2c_write_byte(i2c_addr);
   // --------------------------------------------------------------------
-  
-  // Set data register to slave address and perform write op
-  USIDR = (0x27 << 1) & ~0x01;
 
-  // I2C stop
-  PORTB |= (0 << PB2_PIN); // Pulling SDA low 
-  delay_ms(5);
-  PORTB |= (0 << PB0_PIN); // Pulling SCL low
-  delay_ms(5);
+  // // I2C stop
+  // PORTB |= (0 << PB2_PIN); // Pulling SDA low 
+  // delay_ms(5);
+  // PORTB |= (0 << PB0_PIN); // Pulling SCL low
+  // delay_ms(5);
 
   return 0;
 }
