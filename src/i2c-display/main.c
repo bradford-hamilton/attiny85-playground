@@ -75,10 +75,10 @@ void i2c_init()
   // Set data direction for PB0_PIN (SDA) and PB2_PIN (SCL)
   DDRB |= (1 << SDA_PIN);
   DDRB |= (1 << SCL_PIN);
-  
+
   PORTB |= (1 << SDA_PIN); // Pull SDA high
   PORTB |= (1 << SCL_PIN); // Pull SCL high
-  
+
   USIDR = 0xFF;            // Preload data register
 
   // USICR |= BV_MASK(USIWM1_PIN); // Set two-wire mode (I2C)
@@ -98,7 +98,7 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
   do {
     _delay_us(5);
     USICR |= (1 << USITC_PIN);            // Generate positive clock edge
-    while (!(PINB & (1 << SCL_PIN)));    // Wait for SCL to go high
+    while (!(PORTB & (1 << SCL_PIN)));    // Wait for SCL to go high
     _delay_us(4);
     USICR |= (1 << USITC_PIN);            // Generate negative clock edge
   } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
@@ -114,23 +114,27 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
 
 void i2c_start()
 {
-  PORTB |= (1 << SDA_PIN); // Pull SDA high
+  // PORTB |= (1 << SDA_PIN); // Pull SDA high
   PORTB |= (1 << SCL_PIN); // Pull SCL high
 
   while (!(PORTB & (1 << SCL_PIN))); // Verify that SCL goes high.
 
+  _delay_us(5);
+
   // Generate start condition
   PORTB &= ~(1 << SDA_PIN); // Pull SDA low
 
-  _delay_us(5);
+  _delay_us(4);
 
   PORTB &= ~(1 << SCL_PIN); // Pull SCL low
-  // _delay_us(5);
   PORTB |= (1 << SDA_PIN); // Pull SDA high
+
+  // if (!(USISR & 1 << USISIF_PIN)) return false;
 }
 
 uint8_t i2c_write_byte(uint8_t data)
 {
+  PORTB &= ~(1 << SCL_PIN); // Pull SCL low
   USIDR = data;
   i2c_transfer(USISR_CLOCK_8_BIT);
 
@@ -142,22 +146,34 @@ uint8_t i2c_write_byte(uint8_t data)
   return ack;
 }
 
+void i2c_stop()
+{
+  // Pull SDA low
+	PORTB &= ~(1 << SDA_PIN);
+
+	// Pull SCL high
+	PORTB |= (1 << SCL_PIN);
+	while (! (PORTB & (1 << SCL_PIN)));
+
+	_delay_us(5);
+
+	// Pull SDA high
+	PORTB |= (1 << SDA_PIN);
+
+	_delay_us(4);
+}
+
 int main()
 {
   _delay_ms(4000);
 
-  // --------------------------------------------------------------------
   i2c_init();
   i2c_start();
+
   uint8_t i2c_addr = (0x27 << 1) | WRITE_BIT;
   i2c_write_byte(i2c_addr);
-  // --------------------------------------------------------------------
 
-  // // I2C stop
-  // PORTB |= (0 << SCL_PIN); // Pulling SDA low 
-  // delay_ms(5);
-  // PORTB |= (0 << SDA_PIN); // Pulling SCL low
-  // delay_ms(5);
+  i2c_stop();
 
   return 0;
 }
