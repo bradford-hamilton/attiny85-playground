@@ -36,6 +36,8 @@
 // PORTB pins
 #define PB2_PIN 2 // SCL
 #define PB0_PIN 0 // SDA
+#define SCL_PIN PB2_PIN
+#define SDA_PIN PB0_PIN
 
 // USICR pins
 #define USISIE_PIN 7 // Start Condition Interrupt Enable
@@ -71,21 +73,20 @@
 void i2c_init()
 {
   // Set data direction for PB0_PIN (SDA) and PB2_PIN (SCL)
-  DDRB |= (1 << PB0_PIN);
-  DDRB |= (1 << PB2_PIN);
+  DDRB |= (1 << SDA_PIN);
+  DDRB |= (1 << SCL_PIN);
   
-  PORTB |= (1 << PB0_PIN); // Pull SDA high
-  PORTB |= (1 << PB2_PIN); // Pull SCL high
+  PORTB |= (1 << SDA_PIN); // Pull SDA high
+  PORTB |= (1 << SCL_PIN); // Pull SCL high
   
-  USIDR = 0xFF;                 // Preload data register
+  USIDR = 0xFF;            // Preload data register
 
   // USICR |= BV_MASK(USIWM1_PIN); // Set two-wire mode (I2C)
   // USICR |= BV_MASK(USICS1_PIN); // Software stobe as counter clock source
   // USICR |= BV_MASK(USICLK_PIN); // Software stobe as counter clock source
   USICR = (1 << USIWM1_PIN) | (1 << USICS1_PIN) | (1 << USICLK_PIN);
 
-  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN |
-    1 << USIDC_PIN |    // Clear flags
+  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN | 1 << USIDC_PIN |    // Clear flags
     0x0 << USICNT0_PIN; // Reset counter
 }
 
@@ -97,7 +98,7 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
   do {
     _delay_us(5);
     USICR |= (1 << USITC_PIN);            // Generate positive clock edge
-    while (!(PINB & (1 << PB2_PIN)));    // Wait for SCL to go high
+    while (!(PINB & (1 << SCL_PIN)));    // Wait for SCL to go high
     _delay_us(4);
     USICR |= (1 << USITC_PIN);            // Generate negative clock edge
   } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
@@ -113,18 +114,19 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
 
 void i2c_start()
 {
-  PORTB |= (1 << PB0_PIN); // Pull SDA high
-  PORTB |= (1 << PB2_PIN); // Pull SCL high
+  PORTB |= (1 << SDA_PIN); // Pull SDA high
+  PORTB |= (1 << SCL_PIN); // Pull SCL high
 
-  while (!(PORTB & (1 << PB2_PIN))); // Verify that SCL goes high.
+  while (!(PORTB & (1 << SCL_PIN))); // Verify that SCL goes high.
 
   // Generate start condition
-  PORTB &= ~(1 << PB0_PIN); // Pull SDA low
+  PORTB &= ~(1 << SDA_PIN); // Pull SDA low
 
   _delay_us(5);
 
-  PORTB &= ~(1 << PB2_PIN); // Pull SCL low
-  // PORTB |= (1 << PB0_PIN); // Pull SDA high
+  PORTB &= ~(1 << SCL_PIN); // Pull SCL low
+  // _delay_us(5);
+  PORTB |= (1 << SDA_PIN); // Pull SDA high
 }
 
 uint8_t i2c_write_byte(uint8_t data)
@@ -133,9 +135,9 @@ uint8_t i2c_write_byte(uint8_t data)
   i2c_transfer(USISR_CLOCK_8_BIT);
 
   // Verify ack
-  DDRB &= ~(1 << PB0_PIN); // Set SDA data direction to input to recieve ack
+  DDRB &= ~(1 << SDA_PIN); // Set SDA data direction to input to recieve ack
   uint8_t ack = i2c_transfer(USISR_CLOCK_1_BIT);
-  DDRB |= (1 << PB0_PIN); // Set SDA data direction back to output
+  DDRB |= (1 << SDA_PIN); // Set SDA data direction back to output
 
   return ack;
 }
@@ -152,9 +154,9 @@ int main()
   // --------------------------------------------------------------------
 
   // // I2C stop
-  // PORTB |= (0 << PB2_PIN); // Pulling SDA low 
+  // PORTB |= (0 << SCL_PIN); // Pulling SDA low 
   // delay_ms(5);
-  // PORTB |= (0 << PB0_PIN); // Pulling SCL low
+  // PORTB |= (0 << SDA_PIN); // Pulling SCL low
   // delay_ms(5);
 
   return 0;
