@@ -81,9 +81,6 @@ void i2c_init()
 
   USIDR = 0xFF;            // Preload data register
 
-  // USICR |= BV_MASK(USIWM1_PIN); // Set two-wire mode (I2C)
-  // USICR |= BV_MASK(USICS1_PIN); // Software stobe as counter clock source
-  // USICR |= BV_MASK(USICLK_PIN); // Software stobe as counter clock source
   USICR = (1 << USIWM1_PIN) | (1 << USICS1_PIN) | (1 << USICLK_PIN);
 
   USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN | 1 << USIDC_PIN |    // Clear flags
@@ -92,16 +89,16 @@ void i2c_init()
 
 uint8_t i2c_transfer(uint8_t usisr_mask)
 {
-  USISR = usisr_mask; // Set USI Status Register according to data
+  USISR = usisr_mask; // Set USI Status Register according to mask
 
   // I2C transfer
   do {
     _delay_us(5);
     USICR |= (1 << USITC_PIN);            // Generate positive clock edge
-    while (!(PORTB & (1 << SCL_PIN)));    // Wait for SCL to go high
+    while (!(PINB & 1 << SCL_PIN));    // Wait for SCL to go high
     _delay_us(4);
     USICR |= (1 << USITC_PIN);            // Generate negative clock edge
-  } while (!(USISR & (1 << USIOIF_PIN))); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
+  } while (!(USISR & 1 << USIOIF_PIN)); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
 
   _delay_us(5);
 
@@ -109,15 +106,16 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
 
   USIDR = 0xFF;
 
+  DDRB |= (1 << SDA_PIN);
+
   return data;
 }
 
-void i2c_start()
+bool i2c_start()
 {
-  // PORTB |= (1 << SDA_PIN); // Pull SDA high
   PORTB |= (1 << SCL_PIN); // Pull SCL high
 
-  while (!(PORTB & (1 << SCL_PIN))); // Verify that SCL goes high.
+  while (!(PORTB & 1 << SCL_PIN)); // Verify that SCL goes high.
 
   _delay_us(5);
 
@@ -129,7 +127,11 @@ void i2c_start()
   PORTB &= ~(1 << SCL_PIN); // Pull SCL low
   PORTB |= (1 << SDA_PIN); // Pull SDA high
 
-  // if (!(USISR & 1 << USISIF_PIN)) return false;
+  if (!(USISR & 1 << USISIF_PIN)) {
+    return false;
+  }
+
+  return true;
 }
 
 uint8_t i2c_write_byte(uint8_t data)
@@ -168,9 +170,9 @@ int main()
   _delay_ms(4000);
 
   i2c_init();
-  i2c_start();
+  bool success = i2c_start();
 
-  uint8_t i2c_addr = (0x27 << 1) | WRITE_BIT;
+  uint8_t i2c_addr = 0x27 << 1 | WRITE_BIT;
   i2c_write_byte(i2c_addr);
 
   i2c_stop();
