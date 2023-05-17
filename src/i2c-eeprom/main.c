@@ -95,7 +95,7 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
   do {
     _delay_us(5);
     USICR |= (1 << USITC_PIN);            // Generate positive clock edge
-    while (!(PINB & 1 << SCL_PIN));    // Wait for SCL to go high
+    while (!(PORTB & 1 << SCL_PIN));    // Wait for SCL to go high
     _delay_us(4);
     USICR |= (1 << USITC_PIN);            // Generate negative clock edge
   } while (!(USISR & 1 << USIOIF_PIN)); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
@@ -148,6 +148,17 @@ uint8_t i2c_write_byte(uint8_t data)
   return ack;
 }
 
+uint8_t i2c_read_byte(uint8_t nack) {
+	DDRB &= ~(1 << SDA_PIN);
+	uint8_t data = i2c_transfer(USISR_CLOCK_8_BIT);
+	DDRB |= (1 << SDA_PIN);
+
+	USIDR = nack;
+	i2c_transfer(USISR_CLOCK_1_BIT);
+
+	return data;
+}
+
 void i2c_stop()
 {
   // Pull SDA low
@@ -169,12 +180,18 @@ int main()
 {
   _delay_ms(4000);
 
+  uint8_t i2c_addr = (0x50 << 1) | WRITE_BIT;
+  uint8_t write_val = 'F';
+  uint8_t write_to_addr = 0;
+
   i2c_init();
-  bool success = i2c_start();
+  i2c_start();
 
-  uint8_t i2c_addr = 0x27 << 1 | WRITE_BIT;
   i2c_write_byte(i2c_addr);
-
+  i2c_write_byte((uint8_t)(write_to_addr >> 8)); // MSB
+  i2c_write_byte(write_to_addr & 0xFF);          // LSB
+  i2c_write_byte(write_val);
+  
   i2c_stop();
 
   return 0;
