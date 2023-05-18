@@ -83,26 +83,25 @@ void i2c_init()
 
   USICR = (1 << USIWM1_PIN) | (1 << USICS1_PIN) | (1 << USICLK_PIN);
 
-  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN | 1 << USIDC_PIN |    // Clear flags
-    0x0 << USICNT0_PIN; // Reset counter
+  USISR = 1 << USISIF_PIN | 1 << USIOIF_PIN | 1 << USIPF_PIN | 1 << USIDC_PIN | // Clear flags
+    0x0 << USICNT0_PIN;                                                         // Reset counter
 }
 
 uint8_t i2c_transfer(uint8_t usisr_mask)
 {
-  USISR = usisr_mask; // Set USI Status Register according to mask
+  USISR = usisr_mask;                   // Set USI Status Register according to mask
 
-  // I2C transfer
   do {
     _delay_us(5);
-    USICR |= (1 << USITC_PIN);            // Generate positive clock edge
+    USICR |= (1 << USITC_PIN);          // Generate positive clock edge
     while (!(PORTB & 1 << SCL_PIN));    // Wait for SCL to go high
     _delay_us(4);
-    USICR |= (1 << USITC_PIN);            // Generate negative clock edge
+    USICR |= (1 << USITC_PIN);          // Generate negative clock edge
   } while (!(USISR & 1 << USIOIF_PIN)); // Repeat clock generation at SCL until the counter overflows and a byte is transferred
 
   _delay_us(5);
 
-  uint8_t data = USIDR;                   // Read data
+  uint8_t data = USIDR;                 // Read data
 
   USIDR = 0xFF;
 
@@ -113,19 +112,19 @@ uint8_t i2c_transfer(uint8_t usisr_mask)
 
 bool i2c_start()
 {
-  PORTB |= (1 << SCL_PIN); // Pull SCL high
+  PORTB |= (1 << SCL_PIN);         // Pull SCL high
 
   while (!(PORTB & 1 << SCL_PIN)); // Verify that SCL goes high.
 
   _delay_us(5);
 
   // Generate start condition
-  PORTB &= ~(1 << SDA_PIN); // Pull SDA low
+  PORTB &= ~(1 << SDA_PIN);        // Pull SDA low
 
   _delay_us(4);
 
-  PORTB &= ~(1 << SCL_PIN); // Pull SCL low
-  PORTB |= (1 << SDA_PIN); // Pull SDA high
+  PORTB &= ~(1 << SCL_PIN);        // Pull SCL low
+  PORTB |= (1 << SDA_PIN);         // Pull SDA high
 
   if (!(USISR & 1 << USISIF_PIN)) {
     return false;
